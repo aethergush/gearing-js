@@ -1,0 +1,170 @@
+<script src="https://aethergush.github.io/gearing-js/dist/gearing.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.1.4.min.js"></script>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"  x="0px" y="0px" width="202px" height="264px" viewBox="-0.469 -0.136 202 264" overflow="visible" enable-background="new -0.469 -0.136 202 264"  xml:space="preserve">
+    <path fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="10" d="M200.5,204.792c0,0-35.703,58.341-99.988,54.341C36.223,263.132,0.5,210.862,0.5,131.531C0.5,52.204,38.584,0.5,100.5,0.5c61.924,0,85.354,51.704,85.354,51.704"/>
+</svg>
+<script>
+
+        $(function() {
+
+          addBackdrop(50);
+
+          var $window = $(window);
+          var radius = 40, editColor = 'rgb(79, 128, 255)';
+          var gear = new Gearing({
+              fullscreen: true,
+              autostart: true
+            }).appendTo(document.body);
+
+          var letter = gear.interpret(document.querySelector('.assets svg'));
+          letter.linewidth = radius;
+          letter.cap = letter.join = 'round';
+          letter.noFill().stroke = '#333';
+
+          var resize = function() {
+            var cx = gear.width / 2;
+            var cy = gear.height / 2;
+            var rect = letter.getBoundingClientRect();
+            letter.translation.set(cx - rect.width / 2, cy - rect.height / 2);
+          };
+          gear.bind('resize', resize);
+          resize();
+
+          _.each(letter.children, function(polygon) {
+            _.each(polygon.vertices, function(anchor) {
+
+              var p = gear.makeCircle(0, 0, radius / 4);
+              var l = gear.makeCircle(0, 0, radius / 4);
+              var r = gear.makeCircle(0, 0, radius / 4);
+
+              p.translation.copy(anchor);
+              l.translation.copy(anchor.controls.left).addSelf(anchor);
+              r.translation.copy(anchor.controls.right).addSelf(anchor);
+              p.noStroke().fill = l.noStroke().fill = r.noStroke().fill = editColor;
+
+              var ll = new Gearing.Path([
+                new Gearing.Anchor().copy(p.translation),
+                new Gearing.Anchor().copy(l.translation)
+              ]);
+              var rl = new Gearing.Path([
+                new Gearing.Anchor().copy(p.translation),
+                new Gearing.Anchor().copy(r.translation)
+              ]);
+              rl.noFill().stroke = ll.noFill().stroke = editColor;
+
+              letter.add(rl, ll, p, l, r);
+
+              p.translation.bind(Gearing.Events.change, function() {
+                anchor.copy(this);
+                l.translation.copy(anchor.controls.left).addSelf(this);
+                r.translation.copy(anchor.controls.right).addSelf(this);
+                ll.vertices[0].copy(this);
+                rl.vertices[0].copy(this);
+                ll.vertices[1].copy(l.translation);
+                rl.vertices[1].copy(r.translation);
+              });
+              l.translation.bind(Gearing.Events.change, function() {
+                anchor.controls.left.copy(this).subSelf(anchor);
+                ll.vertices[1].copy(this);
+              });
+              r.translation.bind(Gearing.Events.change, function() {
+                anchor.controls.right.copy(this).subSelf(anchor);
+                rl.vertices[1].copy(this);
+              });
+
+              // Update the renderer in order to generate the actual elements.
+              gear.update();
+
+              // Add Interactivity
+              addInteractivity(p);
+              addInteractivity(l);
+              addInteractivity(r);
+
+            });
+
+          });
+
+          function addInteractivity(shape) {
+
+            var offset = shape.parent.translation;
+
+            var drag = function(e) {
+              e.preventDefault();
+              var x = e.clientX - offset.x;
+              var y = e.clientY - offset.y;
+              shape.translation.set(x, y);
+            };
+            var touchDrag = function(e) {
+              e.preventDefault();
+              var touch = e.originalEvent.changedTouches[0];
+              drag({
+                preventDefault: _.identity,
+                clientX: touch.pageX,
+                clientY: touch.pageY
+              });
+              return false;
+            };
+            var dragEnd = function(e) {
+              e.preventDefault();
+              $window
+                .unbind('mousemove', drag)
+                .unbind('mouseup', dragEnd);
+            };
+            var touchEnd = function(e) {
+              e.preventDefault();
+              $(window)
+                .unbind('touchmove', touchDrag)
+                .unbind('touchend', touchEnd);
+              return false;
+            };
+
+            $(shape._renderer.elem)
+              .css({
+                cursor: 'pointer'
+              })
+              .bind('mousedown', function(e) {
+                e.preventDefault();
+                $window
+                  .bind('mousemove', drag)
+                  .bind('mouseup', dragEnd);
+              })
+              .bind('touchstart', function(e) {
+                e.preventDefault();
+                $(window)
+                  .bind('touchmove', touchDrag)
+                  .bind('touchend', touchEnd);
+                return false;
+              });
+
+          }
+
+        });
+
+        function addBackdrop(d) {
+
+          var dimensions = d || 50;
+          var gear = new Gearing({
+            type: Gearing.Types.canvas,
+            width: dimensions,
+            height: dimensions
+          });
+
+          var r = dimensions / 10;
+          var center = dimensions / 2;
+
+          var a = gear.makeLine(center - r, center, center + r, center);
+          var b = gear.makeLine(center, center - r, center, center + r);
+
+          a.stroke = b.stroke = '#aaa';
+          a.linewidth = b.linewidth = 0.25;
+
+          gear.update();
+
+          _.extend(document.body.style, {
+            backgroundImage: 'url(' + gear.renderer.domElement.toDataURL() + ')',
+            backgroundRepeat: 'repeat',
+            backgroundSize: dimensions + 'px ' + dimensions + 'px'
+          });
+
+        }
+</script>
