@@ -76,8 +76,7 @@ So, let's add some code to draw a circle:
 var element = $("#my-drawing-area");
 
 var gear = new Gearing({
-	width: 300,
-	height: 250 // or whatever
+	fullscreen: true
 }).appendTo(element);
 
 var textStyle = {  
